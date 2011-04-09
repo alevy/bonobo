@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+	"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+	<title>Bonobo</title>
+	<script type="text/javascript" charset="utf-8" src="/javascripts/md5.js"></script>
+	<script>
+	  var messager = new Messager()
+	  window.addEventListener("message", messager.receiveMessage, false)
+	  function Messager() {
+	    this.receiveMessage = function (event) {
+	      event.source.postMessage("hello world", "*");
+	      if (/https?:\/\/[^\\]*\.fbcdn\.net/.test(event.origin)) {
+	        return;
+	      }
+	      if (!this.origin) {
+	        this.origin = event.origin
+	        this.allow =
+	          confirm("Allow " + event.origin + " access to your social data?");
+        }
+        if (this.allow) {
+          var options = JSON.parse(event.data);
+          var client = new XMLHttpRequest();
+          var base_url = document.location.protocol + "//" + document.domain;
+          if (document.location.port) {
+            base_url = base_url + ":" + document.location.port;
+          }
+          client.open('GET',
+          base_url + '/friendof?uid=' + options.uid + '&nonce=' + hex_md5(event.origin + options.nonce), false);
+          client.send(null);
+          if (client.status == 200) {
+	          event.source.postMessage(client.responseText, event.origin);
+	        }
+	      } else {
+	        event.source.postMessage(false, event.origin)
+	      }
+	    }
+	  }
+	</script>
+</head>
+
+<body>
+  <fb:login-button autologoutlink="true" perms="user_groups,user_events"></fb:login-button>
+  <div id="fb-root"></div>
+  <script>
+    window.fbAsyncInit = function() {
+      FB.init({appId: '111373448922809', status: true, cookie: true, xfbml: true});
+      FB.Event.subscribe('auth.login', function(response) {
+       // window.location.reload();
+      });
+      FB.Event.subscribe('auth.logout', function(response) {
+      //  window.location.reload();
+      });
+    };
+    (function() {
+      var e = document.createElement('script');
+      e.type = 'text/javascript';
+      e.src = document.location.protocol + '//connect.facebook.net/en_US/all.js';
+      e.async = true;
+      document.getElementById('fb-root').appendChild(e);
+    }());
+  </script>
+
+</body>
+</html>
