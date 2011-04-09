@@ -17,6 +17,10 @@ class Bonobo < Sinatra::Base
       settings.cache.fetch('key', 86400) { OpenSSL::PKey::RSA.generate(2024).to_pem })
   end
 
+  get '/' do
+    redirect '/index.html'
+  end
+
   get '/includes' do
     id = params[:id]
     nonce = params[:nonce]
