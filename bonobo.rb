@@ -3,6 +3,7 @@ require 'base64'
 require 'fgraph'
 require 'json'
 require 'dalli'
+require 'erb'
 
 require 'sinatra/base'
 
@@ -18,7 +19,7 @@ class Bonobo < Sinatra::Base
   end
 
   get '/' do
-    redirect '/index.html'
+    erb :index
   end
 
   get '/includes' do
