@@ -7,18 +7,30 @@
 	<title>Bonobo</title>
 	<script type="text/javascript" charset="utf-8" src="/javascripts/md5.js"></script>
 	<script>
-	  var messager = new Messager()
-	  window.addEventListener("message", messager.receiveMessage, false)
 	  function Messager() {
-	    this.receiveMessage = function (event) {
-	      event.source.postMessage("hello world", "*");
+	    var queue = [];
+	    this.receiveMessage = function(event) {
+	      if (!queue) {
+	        queue = [];
+	      }
+	      queue[queue.length] = event;
+	    };
+	    this.proccessMessage = function () {
+	      if (queue.length == 0) {
+	        return;
+	      }
+	      var event = queue.shift();
 	      if (/https?:\/\/[^\\]*\.fbcdn\.net/.test(event.origin)) {
 	        return;
 	      }
 	      if (!this.origin) {
 	        this.origin = event.origin
-	        this.allow =
-	          confirm("Allow " + event.origin + " access to your social data?");
+	        if (localStorage[event.origin]) {
+	          this.allow = localStorage[event.origin];
+	        } else {
+	          localStorage[event.origin] = this.allow =
+	              confirm("Allow " + event.origin + " access to your social data?");
+          }
         }
         if (this.allow) {
           var options = JSON.parse(event.data);
@@ -27,8 +39,9 @@
           if (document.location.port) {
             base_url = base_url + ":" + document.location.port;
           }
+          var nonce = hex_md5(event.origin + options.nonce); /// Prevents man-in-the-middle attacks
           client.open('GET',
-          base_url + '/friendof?uid=' + options.uid + '&nonce=' + hex_md5(event.origin + options.nonce), false);
+            base_url + '/includes?id=' + options.id + '&nonce=' + nonce + "&collection=friends", false);
           client.send(null);
           if (client.status == 200) {
 	          event.source.postMessage(client.responseText, event.origin);
@@ -36,22 +49,43 @@
 	      } else {
 	        event.source.postMessage(false, event.origin)
 	      }
-	    }
+	    };
 	  }
+	  var messanger = new Messager();
+	  window.onload = function() {
+	    setInterval(messanger.proccessMessage, 100);
+    };
+    window.addEventListener("message", messanger.receiveMessage, false);
 	</script>
+	<style type="text/css" media="screen">
+	 #main {
+	   position: absolute;
+	   top: 0;
+	   left: 0;
+	 }
+	 #hidden {
+	   visibility: hidden;
+	 }
+	</style>
 </head>
 
 <body>
+  <div id="main">
   <fb:login-button autologoutlink="true" perms="user_groups,user_events"></fb:login-button>
+  </div>
+  <div id="hidden">
   <div id="fb-root"></div>
   <script>
     window.fbAsyncInit = function() {
       FB.init({appId: '<%= FACEBOOK_APP_ID %>', status: true, cookie: true, xfbml: true});
-      FB.Event.subscribe('auth.login', function(response) {
-       // window.location.reload();
-      });
-      FB.Event.subscribe('auth.logout', function(response) {
-      //  window.location.reload();
+      FB.getLoginStatus(function(response) {
+        if (response.session) {
+          window.parent.postMessage("ready", "*");
+        } else {
+          FB.Event.subscribe('auth.login', function(response) {
+            window.parent.postMessage("ready", "*");
+          });
+        }
       });
     };
     (function() {
@@ -62,6 +96,6 @@
       document.getElementById('fb-root').appendChild(e);
     }());
   </script>
-
+  </div>
 </body>
 </html>

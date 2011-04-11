@@ -14,8 +14,7 @@ class Bonobo < Sinatra::Base
   set :public, File.dirname(__FILE__) + '/public'
   
   before do
-    @key = OpenSSL::PKey::RSA.new(
-      settings.cache.fetch('key', 86400) { OpenSSL::PKey::RSA.generate(2024).to_pem })
+    @key = OpenSSL::PKey::RSA.new(File.read(File.dirname(__FILE__) + '/privatekey.pem'))
   end
 
   get '/' do
@@ -30,20 +29,27 @@ class Bonobo < Sinatra::Base
   
     fb_hash = hash_from_cookie("fbs_#{FACEBOOK_APP_ID}")
     client = FGraph::Client.new(:access_token => fb_hash["access_token"])
-    friends = settings.cache.fetch("#{collection}.#{fb_hash["uid"]}", 60) { client.me(collection) }
-    friend = friends.find {|elm| elm["id"] == id}
+    friend = nil
+    if (collection == "friends" and fb_hash["uid"] == id)
+      friend = true
+    else
+      friends = settings.cache.fetch("#{collection}.#{fb_hash["uid"]}", 60) { client.me(collection) }
+      friend = friends.find {|elm| elm["id"] == id}
+    end
     if friend
       JSON.dump({:result => true, :signature =>
-        Base64.encode64(@key.sign(OpenSSL::Digest::MD5.new, "#{collection}|#{id}|#{nonce}"))})
+        Base64.encode64(@key.sign(OpenSSL::Digest::SHA1.new, "#{collection}|#{id}|#{nonce}"))})
     else
       JSON.dump({:result => false, :signature =>
-        Base64.encode64(@key.sign(OpenSSL::Digest::MD5.new, "!#{collection}|#{id}|#{nonce}"))})
+        Base64.encode64(@key.sign(OpenSSL::Digest::SHA1.new, "!#{collection}|#{id}|#{nonce}"))})
     end
   end
 
-  get '/publickey.pem' do
-    return @key.public_key.to_pem
-  end
+#  get '/publickey.pem' do
+#    cert = OpenSSL::X509::Certificate.new
+#    cert.public_key = @key.public_key
+#    return cert.to_pem
+#  end
 
   protected
   def hash_from_cookie(name)
